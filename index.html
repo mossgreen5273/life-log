@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ヘルス＆ライフ ログ</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ヘルスログ">
+<meta name="theme-color" content="#e91e63">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --primary: #e91e63;
+    --primary-hover: #d81b60;
+    --primary-light: #f8bbd0;
+    --banner-bg: #fce4ec;
+    --bg: #f7f9fc;
+    --card: #ffffff;
+    --text: #333333;
+    --muted: #666666;
+    --heading: #444444;
+    --border: #e0e0e0;
+    --input-bg: #ffffff;
+    --grid: rgba(0,0,0,0.08);
+    --shadow: 0 2px 8px rgba(0,0,0,0.06);
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --primary: #f06292;
+      --primary-hover: #ec407a;
+      --primary-light: #6a2a40;
+      --banner-bg: #3a1f2a;
+      --bg: #15171c;
+      --card: #1f2229;
+      --text: #e6e6e6;
+      --muted: #a0a4ad;
+      --heading: #d6d6d6;
+      --border: #3a3e47;
+      --input-bg: #262a32;
+      --grid: rgba(255,255,255,0.08);
+      --shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --primary: #f06292;
+    --primary-hover: #ec407a;
+    --primary-light: #6a2a40;
+    --banner-bg: #3a1f2a;
+    --bg: #15171c;
+    --card: #1f2229;
+    --text: #e6e6e6;
+    --muted: #a0a4ad;
+    --heading: #d6d6d6;
+    --border: #3a3e47;
+    --input-bg: #262a32;
+    --grid: rgba(255,255,255,0.08);
+    --shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 16px;
+    line-height: 1.5;
+  }
+  .container { max-width: 800px; margin: 0 auto; }
+  h1 { text-align: center; color: var(--primary); font-size: 1.5rem; margin: 0 0 8px; }
+  .storage-note { text-align: center; font-size: 0.8rem; color: var(--muted); margin: 0 0 16px; }
+  .card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+  .card h2 {
+    font-size: 1.1rem;
+    margin: 0 0 12px;
+    color: var(--heading);
+    border-bottom: 2px solid var(--primary-light);
+    padding-bottom: 4px;
+  }
+  .prediction-banner {
+    background: var(--banner-bg);
+    border-left: 5px solid var(--primary);
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    font-weight: bold;
+  }
+  .prediction-banner small { display: block; font-weight: normal; color: var(--muted); margin-top: 2px; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .form-group { display: flex; flex-direction: column; }
+  .form-group label { font-size: 0.85rem; margin-bottom: 4px; color: var(--muted); }
+  input, select, button {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 16px;
+    background: var(--input-bg);
+    color: var(--text);
+    font-family: inherit;
+    width: 100%;
+  }
+  input:focus-visible, select:focus-visible, button:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+  input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary); }
+  .checkbox-group { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+  .btn-submit {
+    grid-column: 1 / -1;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    font-weight: bold;
+    padding: 12px;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .btn-submit:hover { background: var(--primary-hover); }
+  .btn-submit:disabled { opacity: 0.6; cursor: wait; }
+  .status { grid-column: 1 / -1; min-height: 1.4em; font-size: 0.9rem; text-align: center; color: var(--muted); }
+  .status.ok { color: var(--primary); font-weight: bold; }
+  .status.err { color: #d32f2f; font-weight: bold; }
+  .chart-container { position: relative; height: 250px; width: 100%; }
+  .empty { color: var(--muted); font-size: 0.9rem; text-align: center; padding: 24px 0; }
+  .backup-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .btn-sub { background: var(--card); color: var(--primary); border: 1px solid var(--primary); font-weight: bold; padding: 10px; cursor: pointer; }
+  .btn-sub:hover { background: var(--banner-bg); }
+  .hint { font-size: 0.8rem; color: var(--muted); margin: 10px 0 0; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>ヘルス＆ライフ ログ</h1>
+
+  <div class="prediction-banner" id="predictionBanner">生理予定日: データを入力してください</div>
+
+  <div class="card">
+    <h2>本日の記録</h2>
+    <form id="logForm">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="date">日付</label>
+          <input type="date" id="date" required>
+        </div>
+        <div class="form-group">
+          <label for="period">生理</label>
+          <select id="period">
+            <option value="none">なし</option>
+            <option value="start">開始日</option>
+            <option value="ongoing">生理中</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="mood">気分 (1:低 ~ 5:高)</label>
+          <select id="mood">
+            <option value="1">1 (不調/落ち込み)</option>
+            <option value="2">2 (やや低め)</option>
+            <option value="3" selected>3 (普通)</option>
+            <option value="4">4 (良好)</option>
+            <option value="5">5 (絶好調)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="condition">体調 (1:悪 ~ 5:良)</label>
+          <select id="condition">
+            <option value="1">1 (悪い)</option>
+            <option value="2">2 (やや悪い)</option>
+            <option value="3" selected>3 (普通)</option>
+            <option value="4">4 (良い)</option>
+            <option value="5">5 (非常に良い)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="meds">服薬チェック</label>
+          <div class="checkbox-group">
+            <input type="checkbox" id="meds">
+            <span>服用した</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="weight">体重 (kg)</label>
+          <input type="number" id="weight" step="0.1" inputmode="decimal" placeholder="50.0">
+        </div>
+        <div class="form-group">
+          <label for="bpSys">血圧 上 (mmHg)</label>
+          <input type="number" id="bpSys" inputmode="numeric" placeholder="120">
+        </div>
+        <div class="form-group">
+          <label for="bpDia">血圧 下 (mmHg)</label>
+          <input type="number" id="bpDia" inputmode="numeric" placeholder="80">
+        </div>
+        <div class="form-group">
+          <label for="glucose">血糖値 (mg/dL)</label>
+          <input type="number" id="glucose" inputmode="numeric" placeholder="100">
+        </div>
+        <button type="submit" class="btn-submit" id="saveBtn">記録を保存</button>
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>気分・体調ログ（直近30件）</h2>
+    <div class="chart-container"><canvas id="moodChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>体重・血圧・血糖値の推移</h2>
+    <div class="chart-container"><canvas id="vitalChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>生理周期の推移（日数）</h2>
+    <div class="chart-container" id="cycleWrap"><canvas id="cycleChart"></canvas></div>
+    <p class="empty" id="cycleEmpty" hidden>開始日が2回以上記録されると周期が表示されます</p>
+  </div>
+
+  <div class="card">
+    <h2>バックアップ</h2>
+    <div class="backup-row">
+      <button type="button" class="btn-sub" id="exportBtn">ファイルに書き出す</button>
+      <button type="button" class="btn-sub" id="importBtn">ファイルから読み込む</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+    <p class="hint">記録はこの端末の中だけに保存されます。機種変更やブラウザのデータ削除に備えて、ときどき書き出しておいてください。</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  const LS_KEY = 'health_app_logs';
+  const $ = (id) => document.getElementById(id);
+
+  // ---- 日付ユーティリティ（ローカル時刻基準。toISOString は UTC なので使わない）
+  const pad = (n) => String(n).padStart(2, '0');
+  const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const parse = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  const DAY = 86400000;
+  const today = () => fmt(new Date());
+
+  // ---- 保存先：この端末の localStorage
+  let logs = {};
+
+  function lsLoad() {
+    try { const v = localStorage.getItem(LS_KEY); return v ? JSON.parse(v) : {}; }
+    catch (e) { return {}; }
+  }
+  function lsSave() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(logs)); return true; }
+    catch (e) { return false; }
+  }
+  async function saveEntry(date, entry) {
+    logs[date] = entry;
+    return lsSave();
+  }
+
+  // ---- バックアップ
+  $('exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify({ app: 'health-life-log', version: 1, logs }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `health-log-${today()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    showStatus('記録を書き出しました', 'ok');
+  });
+  $('importBtn').addEventListener('click', () => $('importFile').click());
+  $('importFile').addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      const incoming = data && data.logs ? data.logs : data;
+      const keys = Object.keys(incoming || {}).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
+      if (!keys.length) throw new Error('empty');
+      if (!confirm(`${keys.length}日分の記録を読み込みます。同じ日付の記録は上書きされます。`)) return;
+      keys.forEach((k) => { logs[k] = incoming[k]; });
+      lsSave();
+      loadForm($('date').value);
+      updateApp();
+      showStatus(`${keys.length}日分を読み込みました`, 'ok');
+    } catch (err) {
+      showStatus('読み込めませんでした。書き出したJSONファイルを選んでください', 'err');
+    }
+  });
+
+  // ---- フォーム
+  $('date').value = today();
+
+  function numOrNull(id, isFloat) {
+    const v = $(id).value;
+    if (v === '') return null;
+    const n = isFloat ? parseFloat(v) : parseInt(v, 10);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function loadForm(date) {
+    const d = logs[date];
+    $('period').value = d ? (d.period || 'none') : 'none';
+    $('mood').value = String(d ? (d.mood || 3) : 3);
+    $('condition').value = String(d ? (d.condition || 3) : 3);
+    $('meds').checked = d ? !!d.meds : false;
+    $('weight').value = d && d.weight != null ? d.weight : '';
+    $('bpSys').value = d && d.bpSys != null ? d.bpSys : '';
+    $('bpDia').value = d && d.bpDia != null ? d.bpDia : '';
+    $('glucose').value = d && d.glucose != null ? d.glucose : '';
+  }
+
+  $('date').addEventListener('change', (e) => loadForm(e.target.value));
+
+  let statusTimer = null;
+  function showStatus(text, cls) {
+    const el = $('status');
+    el.textContent = text;
+    el.className = 'status ' + (cls || '');
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => { el.textContent = ''; el.className = 'status'; }, 3000);
+  }
+
+  $('logForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const date = $('date').value;
+    if (!date) return;
+    const entry = {
+      period: $('period').value,
+      mood: parseInt($('mood').value, 10),
+      condition: parseInt($('condition').value, 10),
+      meds: $('meds').checked,
+      weight: numOrNull('weight', true),
+      bpSys: numOrNull('bpSys'),
+      bpDia: numOrNull('bpDia'),
+      glucose: numOrNull('glucose')
+    };
+    const btn = $('saveBtn');
+    btn.disabled = true;
+    const ok = await saveEntry(date, entry);
+    btn.disabled = false;
+    showStatus(ok ? `${date} の記録を保存しました` : '保存できませんでした。もう一度お試しください', ok ? 'ok' : 'err');
+    updateApp();
+  });
+
+  // ---- グラフ
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function applyChartTheme() {
+    if (!window.Chart) return;
+    Chart.defaults.color = css('--muted');
+    Chart.defaults.borderColor = css('--grid');
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  }
+
+  let moodChart = null, vitalChart = null, cycleChart = null;
+
+  function updateApp() {
+    const dates = Object.keys(logs).sort();
+    updatePrediction(dates);
+    if (!window.Chart) return;
+    applyChartTheme();
+    renderCycleChart(dates);
+    renderMoodChart(dates);
+    renderVitalChart(dates);
+  }
+
+  function periodStartsOf(dates) { return dates.filter((d) => logs[d] && logs[d].period === 'start'); }
+
+  function updatePrediction(dates) {
+    const starts = periodStartsOf(dates);
+    const banner = $('predictionBanner');
+    if (starts.length === 0) {
+      banner.textContent = '生理予定日: 開始日を記録すると表示されます';
+      return;
+    }
+    const cycles = [];
+    for (let i = 1; i < starts.length; i++) cycles.push(Math.round((parse(starts[i]) - parse(starts[i - 1])) / DAY));
+    const avg = cycles.length ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : 28;
+    const next = parse(starts[starts.length - 1]);
+    next.setDate(next.getDate() + avg);
+    const diff = Math.round((next - parse(today())) / DAY);
+    const rel = diff > 0 ? `あと${diff}日` : diff === 0 ? '今日' : `${-diff}日経過`;
+    banner.innerHTML = '';
+    banner.append(`次回生理予定日: ${fmt(next)}（${rel}）`);
+    const sm = document.createElement('small');
+    sm.textContent = cycles.length ? `平均周期 ${avg}日（${cycles.length}周期分）` : '周期データがまだ1回分のため28日で計算しています';
+    banner.append(sm);
+  }
+
+  function renderCycleChart(dates) {
+    const starts = periodStartsOf(dates);
+    const cycles = [], labels = [];
+    for (let i = 1; i < starts.length; i++) {
+      cycles.push(Math.round((parse(starts[i]) - parse(starts[i - 1])) / DAY));
+      labels.push(`${starts[i - 1].slice(5)}→${starts[i].slice(5)}`);
+    }
+    const has = cycles.length > 0;
+    $('cycleWrap').hidden = !has;
+    $('cycleEmpty').hidden = has;
+    if (cycleChart) { cycleChart.destroy(); cycleChart = null; }
+    if (!has) return;
+    const lo = Math.min(20, ...cycles) - 2, hi = Math.max(40, ...cycles) + 2;
+    cycleChart = new Chart($('cycleChart'), {
+      type: 'bar',
+      data: { labels, datasets: [{ label: '周期日数', data: cycles, backgroundColor: css('--primary-light'), borderColor: css('--primary'), borderWidth: 1 }] },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: lo, max: hi } } }
+    });
+  }
+
+  function renderMoodChart(dates) {
+    const recent = dates.slice(-30);
+    const labels = recent.map((d) => d.slice(5));
+    if (moodChart) moodChart.destroy();
+    moodChart = new Chart($('moodChart'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: '気分', data: recent.map((d) => logs[d].mood), borderColor: '#ff9800', backgroundColor: '#ff9800', tension: 0.2 },
+          { label: '体調', data: recent.map((d) => logs[d].condition), borderColor: '#4caf50', backgroundColor: '#4caf50', tension: 0.2 },
+          { label: '服薬', data: recent.map((d) => logs[d].meds ? 1 : 0), borderColor: '#2196f3', backgroundColor: '#2196f3', stepped: true, pointStyle: 'rectRot', pointRadius: 5 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 5, ticks: { stepSize: 1 } } } }
+    });
+  }
+
+  function renderVitalChart(dates) {
+    const recent = dates.slice(-30);
+    const labels = recent.map((d) => d.slice(5));
+    const pick = (k) => recent.map((d) => logs[d][k] != null ? logs[d][k] : null);
+    if (vitalChart) vitalChart.destroy();
+    vitalChart = new Chart($('vitalChart'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: '体重 (kg)', data: pick('weight'), borderColor: '#9c27b0', backgroundColor: '#9c27b0', yAxisID: 'y1', spanGaps: true },
+          { label: '血圧(上)', data: pick('bpSys'), borderColor: '#f44336', backgroundColor: '#f44336', yAxisID: 'y2', spanGaps: true },
+          { label: '血圧(下)', data: pick('bpDia'), borderColor: '#ff8a80', backgroundColor: '#ff8a80', borderDash: [5, 4], yAxisID: 'y2', spanGaps: true },
+          { label: '血糖値', data: pick('glucose'), borderColor: '#00bcd4', backgroundColor: '#00bcd4', yAxisID: 'y2', spanGaps: true }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          y1: { type: 'linear', position: 'left', title: { display: true, text: '体重' } },
+          y2: { type: 'linear', position: 'right', title: { display: true, text: '血圧 / 血糖' }, grid: { drawOnChartArea: false } }
+        }
+      }
+    });
+  }
+
+  // テーマ切替時にグラフ色を追従
+  try {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateApp);
+    new MutationObserver(updateApp).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  } catch (e) {}
+
+  logs = lsLoad();
+  loadForm($('date').value);
+  updateApp();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  }
+})();
+</script>
+</body>
+</html>
